@@ -45,10 +45,14 @@ We use GitOps to manage our Kubernetes clusters. You need to automate the deploy
    - Configure ArgoCD to track your repository and automatically deploy/sync the application.
    - **Important:** Do NOT configure your CI/CD pipeline to commit and push image tag updates back to your configuration repository. Instead, implement a dedicated tool or controller that automatically monitors the container registry for new image tags and updates the deployment automatically.
    
-   > **Educational Note: ArgoCD Image Updater**
-   > *Why we use it:* Updating image tags in Git via a CI pipeline requires giving your CI runner write access to your Git repository, which can be a security risk and clutters your git history with automated commits.
-   > *How it works:* ArgoCD Image Updater polls your container registry for new tags. When it detects a new tag that matches your criteria (e.g., a specific semantic version range or regex), it signals ArgoCD to update the application.
-   > *Ways of using it:* 
+   > [!NOTE]
+   > **ArgoCD Image Updater**
+   > 
+   > **Why we use it:** Updating image tags in Git via a CI pipeline requires giving your CI runner write access to your Git repository, which can be a security risk and clutters your git history with automated commits.
+   > 
+   > **How it works:** ArgoCD Image Updater polls your container registry for new tags. When it detects a new tag that matches your criteria (e.g., a specific semantic version range or regex), it signals ArgoCD to update the application.
+   > 
+   > **Ways of using it:** 
    > 1. **Imperative (Direct) Update:** The updater directly modifies the ArgoCD Application resource in the cluster's memory/etcd (fast, but causes drift from Git).
    > 2. **Declarative (Git Write-back):** The updater commits the new tag back to Git (maintains GitOps purity). For this assessment, you may use either method as long as the CI pipeline isn't doing the git commit!
 
