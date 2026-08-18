@@ -21,14 +21,14 @@ The application code is provided in the repository. Your first task is to contai
    - Create an **optimal** `Dockerfile` for the provided Python application.
    - Keep the image size as small as possible while ensuring the application runs correctly.
    - Follow container security best practices (e.g., use a minimal base image, run as a non-root user).
-2. **Secure CI/CD Pipeline (GitHub Actions or similar):**
-   - Create a pipeline that builds the Docker image.
-   - Design the pipeline so that it concurrently builds and tests the image against multiple different versions of the base runtime environment dynamically, without manually duplicating the pipeline jobs.
-   - Integrate security scanning tools into the pipeline:
-     - **Secret Scanning** (e.g., Gitleaks) *(Optional)*
-     - **SAST** (Static Application Security Testing)
-     - **Container Image Vulnerability Scanning** (e.g., Trivy or Grype)
-   - If the image passes all security checks, push it to a container registry (e.g., Docker Hub, GHCR).
+2. **Multi-Branch Secure CI/CD Architecture (GitHub Actions or similar):**
+   - **Branch Protection:** Enforce a policy where direct commits to the `main` branch are restricted. All changes must go through a Pull Request.
+   - **Working Branch Pipeline:** Create a pipeline that is triggered only when a Pull Request is opened against the main branch.
+     - It should build and test the image.
+     - Integrate code quality and security scanning tools: **Code Linting** (e.g., Flake8), **Secret Scanning** (Optional), **SAST** (Static Application Security Testing), and **Container Image Vulnerability Scanning**.
+     - All tests, linting, and security scans must pass successfully before the Pull Request can be merged into main branch.
+   - **Release Pipeline (`main` branch):** Create a second pipeline that only triggers when a PR is merged into `main`.
+     - This pipeline should build the final images, push them to a container registry (e.g., Docker Hub, GHCR), and automatically update the image tags in the Kubernetes deployment manifests in your repository.
 
 ---
 
@@ -39,22 +39,15 @@ We use GitOps to manage our Kubernetes clusters. You need to automate the deploy
 1. **ArgoCD Setup:**
    - Install and configure ArgoCD on your local Kubernetes cluster.
 2. **Kubernetes Manifests:**
-   - Create the necessary Kubernetes manifests (Deployment, Service) for the application.
-   - **Crucial:** Since the application has a known memory leak (designed to reach 500MB over 2 minutes), you must configure **Resource Requests and Limits** for the Pod. Set the memory limit explicitly to `400Mi` so that the Kubernetes scheduler terminates the pod (`OOMKilled`) well before it consumes node resources.
+   - Since your pipeline builds multiple image versions, you must run them simultaneously in your cluster. Create **three separate Deployments** (one for each image version built by your matrix).
+   - Create a **single shared Kubernetes Service** that acts as a load balancer to route traffic evenly across all three Deployments.
+   - **Crucial:** Since the application has a known memory leak (designed to reach 500MB over 2 minutes), you must configure **Resource Requests and Limits** for all Pods. Set the memory limit explicitly to `400Mi` so that the Kubernetes scheduler terminates the pod (`OOMKilled`) well before it consumes node resources.
 3. **Automated Deployment & Image Updates:**
    - Configure ArgoCD to track your repository and automatically deploy/sync the application.
-   - **Important:** Do NOT configure your CI/CD pipeline to commit and push image tag updates back to your configuration repository. Instead, implement a dedicated tool or controller that automatically monitors the container registry for new image tags and updates the deployment automatically.
-   
-   > [!NOTE]
-   > **ArgoCD Image Updater**
-   > 
-   > **Why we use it:** Updating image tags in Git via a CI pipeline requires giving your CI runner write access to your Git repository, which can be a security risk and clutters your git history with automated commits.
-   > 
-   > **How it works:** ArgoCD Image Updater polls your container registry for new tags. When it detects a new tag that matches your criteria (e.g., a specific semantic version range or regex), it signals ArgoCD to update the application.
-   > 
-   > **Ways of using it:** 
-   > 1. **Imperative (Direct) Update:** The updater directly modifies the ArgoCD Application resource in the cluster's memory/etcd (fast, but causes drift from Git).
-   > 2. **Declarative (Git Write-back):** The updater commits the new tag back to Git (maintains GitOps purity). For this assessment, you may use either method as long as the CI pipeline isn't doing the git commit!
+   - You may choose **any method** to automate the updating of the image tag in your deployment environment. For example, you could configure your CI/CD pipeline to automatically commit and push the new image tag back to your Git configuration files after a successful build.
+4. **Enterprise Best Practices & Innovation:**
+   - Instead of just a basic deployment, design and implement a production-grade Kubernetes footprint using your own innovation. 
+   - You must implement at least the following, but you have full creative freedom on how to securely configure them: **Namespaces**, **ConfigMaps & Secrets**, **initContainers**, **RBAC** (ServiceAccounts, Roles), **NetworkPolicies**, and **ResourceQuotas**.
 
 ---
 
@@ -62,13 +55,14 @@ We use GitOps to manage our Kubernetes clusters. You need to automate the deploy
 
 Visibility into the cluster and the application's behavior is critical.
 
-1. **Metrics & Dashboards:**
-   - Install **Prometheus** and **Grafana** in your cluster(via Helm).
-   - Build a comprehensive Grafana Dashboard that displays(You Can also import them):
+1. **Comprehensive Observability Stack:**
+   - Install **Prometheus** and **Grafana** in your cluster(via Helm) for metrics monitoring.
+   - Build a comprehensive Grafana Dashboard that displays (You Can also import them):
      - **Node Metrics:** CPU, Memory, and Disk usage.
      - **Pod & Cluster Metrics:** CPU and Memory usage per pod.
+   - **Log Aggregation / Tracing:** Since Prometheus only handles metrics, you must implement an additional observability stack of your choice (e.g., ELK/EFK stack, Loki, or similar) to capture and aggregate the application logs centrally.
 2. **Alerting:**
-   - Configure Prometheus/Alertmanager rules to trigger alerts for the following scenarios:
+   - Configure **Grafana Alerts** to trigger notifications for the following scenarios:
      - **Application Health Check Failures** (Pod goes down or becomes unready).
      - **OOMKilled Events** (Triggered when the application hits its memory limit).
    - *Bonus:* Route these alerts to a Slack webhook or an email address.
