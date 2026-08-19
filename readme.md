@@ -25,7 +25,7 @@ The application code is provided in the repository. Your first task is to contai
    - **Branch Protection:** Enforce a policy where direct commits to the `main` branch are restricted. All changes must go through a Pull Request.
    - **Working Branch Pipeline:** Create a pipeline that is triggered only when a Pull Request is opened against the main branch.
      - It should build and test the image.
-     - Integrate code quality and security scanning tools: **Code Linting** (e.g., Flake8), **Secret Scanning** (Optional), **SAST** (Static Application Security Testing), and **Container Image Vulnerability Scanning**.
+     - Integrate code quality and security scanning tools: **Code Linting** (e.g., Flake8), **Secret Scanning** (Optional), **SAST** (Static Application Security Testing(ignore "0.0.0.0" related errors)), Unit test case(pytest) and **Container Image Vulnerability Scanning**.
      - All tests, linting, and security scans must pass successfully before the Pull Request can be merged into main branch.
    - **Release Pipeline (`main` branch):** Create a second pipeline that only triggers when a PR is merged into `main`.
      - This pipeline should build the final images, push them to a container registry (e.g., Docker Hub, GHCR), and automatically update the image tags in the Kubernetes deployment manifests in your repository.
